@@ -1,0 +1,192 @@
+---
+title: "Exercicio 6"
+author: "Lucas Santos Leal de Albuquerque"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(tidyverse)
+theme_set(theme_bw())
+require(gridExtra)
+if(!require(cowplot)) install.packages("cowplot");require(cowplot)
+require(haven)
+
+```
+
+### Neste exercício usaremos o banco de dados do ESEB 2018. Para maiores detalhes sobre o survey, ver neste [link](https://www.cesop.unicamp.br/por/eseb). O questionário da pesquisa de 2018 está [aqui](https://www.cesop.unicamp.br/vw/1IMr0S64wNQ_MDA_91ea3_/quest_04622.pdf) e pode ser consultado para ter maiores detalhes sobre as variáveis.
+
+### O banco de dados está disponível no site do CESOP para usuários cadastrados. Para facilitar o acesso, deixei o banco de dados dispónivel no seguinte endereço: https://github.com/MartinsRodrigo/Analise-de-dados/raw/master/04622.sav
+
+### Baixe o banco de dados pelo R
+```{r}
+Url <- 'https://github.com/MartinsRodrigo/Analise-de-dados/raw/master/04622.sav'
+banco <- read_sav(url(Url))       
+### O banco foi feito em SPSS e está em formato SAV. Carregue-o
+
+### Utilize as funções para observar o banco de dados
+glimpse(banco)
+
+```
+
+### A variável Q1607 indica uma nota de 0 a 10 ao candidato Jair Bolsonaro. Valores acima de 10 representam respostas não uteis para nossa pesquisa. Represente graficamente esta variável apenas com os valores válidos e descreva o resultado.*OBS: transforme esta variável para númerica com a função `as.numeric()`.
+
+##### Os gráficos mostram que a variável Q1607, que atribui notas ao político Jair Bolsonaro tem uma distribuição polarizada, com os valores extremos se sobressaindo. Avaliações medianas também apresentaram maior frequência. A mediana da distribuição está posicionada em 6, indicando que mais da metade dos respondentes atribuíram valores acima da média de 5.5 ao político Jair Bolsonaro. O terceiro quartil se iguala com o valor máximo da distribuição, indicando que pelo menos 25% dos respondentes tiveram como valor a nota 10.
+
+```{r}
+
+banco_q1607 <- banco %>% mutate(Q1607 = as.numeric(Q1607)) %>%  filter(Q1607 <= 10)
+summary(banco_q1607$Q1607)
+p1 <- ggplot(banco_q1607, aes(x = "", y = Q1607)) + geom_boxplot(fill = '#666699') + ggtitle('Nota - Jair Bolsonaro')
+p2 <- ggplot(banco_q1607, aes(x = Q1607)) + geom_histogram(fill = '#666699') 
+plot_grid(plotlist = list(p1, p2),align = 'h')
+
+```
+
+### Vamos procurar entender o que está associado à aprovação deste candidato. Primeiro, vamos observar a idade dos respondentes com a variável D1A_ID. Represente esta variável graficamente.
+
+### Teste a associação entre a nota dada a Jair Bolsonaro e idade do respondente, explicando o resultado.
+
+##### O teste de correlação indica que há uma associação positiva fraca entre idade do respondente e nota de Bolsonaro. A associação foi de 0.1, com p-valor significativo indicando a rejeição da hipótese nula.
+
+### Faça uma regressao linear mostrando em que medida a idade do respondente explica a avaliação do candidato Jair Bolsonaro. Interprete o resultado.
+
+##### Os resultados da regressão apresentam um impacto pequeno da variável idade na nota do político, de modo que uma alteração de uma unidade da idade gera um aumento de 0.02 na nota atribuída. O p-valor foi significativo a nível de 99%, e o erro padrão do coeficiente foi pequeno (0.005). O R2 indica que a variável idade tem pouca capacidade explicativa da variável dependente (1%).Quando a variável de interesse é idade é interessante agrupa-la em categorias, devido à possibilidade maior de mundança de opinião entre gerações. Os efeitos de longo prazo podem ser mais relevantes.
+
+```{r}
+p3 <- ggplot(banco_q1607, aes(x = "", y = D1A_ID)) + geom_boxplot(fill = '#666699')
+p4 <- ggplot(banco_q1607, aes(x = D1A_ID)) + geom_histogram(fill = '#666699') + ggtitle('Idade dos respondentes')
+plot_grid(plotlist = list(p3,p4))
+summary(banco_q1607$D1A_ID)
+
+cor.test(banco_q1607$D1A_ID, banco_q1607$Q1607)
+
+summary(lm(Q1607~D1A_ID, data = banco_q1607))
+ggplot(banco_q1607, aes(x = D1A_ID, y = Q1607)) + geom_point(color = '#666699') + geom_smooth(method = 'lm')
+```
+
+### Observe a variável D3_ESCOLA dos respondentes relativa a educação Represente esta variável graficamente. #OBS: observe que esta variável está como numérica, apesar de ser categórica ordinal. No entanto, trate-a como numérica, indicando que quanto maior o valor, maior o nível educacional do respondente.
+
+### Teste a associação entre a nota dada a Jair Bolsonaro e educação do respondente, explicando o resultado.
+
+##### O teste de correlação indicou uma relação negativa fraca entre educação e nota de Jair Bolsonaro com coeficiente de -0.06, significativo ao nível de 99%.
+
+
+### Faça uma regressao linear mostrando em que medida a educação do respondente explica a avaliação do candidato Jair Bolsonaro. Interprete o resultado.
+
+##### O resultado da regressão indica que o acréscimo de um ano na variável independente tem impacto de -0.118 na nota de Bolsonaro, ou seja, quanto mais escolarizado o respondente, menor a nota. O p-valor foi significativo ao nível de 99%. O erro padrão da amostra foi de 0.03, indicando uma baixa variabilidade entre amostras. O R2 do modelo foi baixo, o que significa que a variável independente tem pouco poder explicativo da variável dependente.
+
+```{r}
+
+p5 <- ggplot(banco_q1607, aes(x = "", y = D3_ESCOLA)) + geom_boxplot(fill = '#666699') + ggtitle('Educação do respondente')
+p6 <- ggplot(banco_q1607, aes(x = D3_ESCOLA)) + geom_histogram(fill = '#666699')
+plot_grid(plotlist = list(p5,p6))
+
+summary(banco_q1607$D3_ESCOLA)
+
+cor.test(banco_q1607$D3_ESCOLA, banco_q1607$Q1607)
+
+summary(lm(Q1607~D3_ESCOLA, banco_q1607))
+ggplot(banco_q1607, aes(x = D3_ESCOLA, y = Q1607)) + geom_point(color = '#666699') + geom_smooth(method = 'lm')
+
+```
+
+### Observe a variável D9 sobre renda dos respondentes. Represente esta variável graficamente. #OBS: note que os valores 9999998 e 9999999 devem ser descartados.
+
+### Teste a associação entre a nota dada a Jair Bolsonaro e renda do respondente, explicando o resultado.
+
+##### A correlação encontrada foi baixa, próxima de zero (0.03), entretando o p-valor indica que é possível rejeitar a hipótese de que não há correlação entre as variáveis.
+
+### Faça uma regressao linear mostrando em que medida a renda do respondente explica a avaliação do candidato Jair Bolsonaro. Interprete o resultado.
+
+##### O resultado condiz com o esperado. O impacto da variável Renda sobre a nota ao político Bolsonaro é muito pequeno, não podendo ser diferenciado de zero estatísticamente ao nível de 95% (p-valor > 0.05). O R2 também corrobora a ideia de que a variável não tem impacto, afinal apenas 0,1% da variação da variável dependente está associado à variável independente.
+
+```{r}
+banco_D9 <- banco_q1607 %>% filter(D9 != 9999998 & D9 != 9999999)
+
+p7 <- ggplot(banco_D9, aes(x= '', y = D9)) + geom_boxplot(fill = "#666699") +
+  ggtitle("Renda familiar do respondente")
+p8 <- ggplot(banco_D9, aes(x = D9)) + geom_histogram(fill = "#666699")
+plot_grid(plotlist = list(p7, p8))
+
+cor.test(banco_D9$D9, banco_D9$P1607)
+
+summary(lm(Q1607~D9, banco_D9))
+ggplot(banco_D9, aes(x = D9, y = Q1607)) + geom_point() + geom_smooth(method = 'lm')
+
+
+```
+### Deixando as variáveis socio-economicas de lado, vamos analisar agora variáveis relativas a preferências políticas.
+
+### A variável Q1501 indica uma nota de 0 a 10 ao PT. Valores acima de 10 representam respostas não uteis para nossa pesquisa. Represente graficamente esta variável apenas com os valores válidos e descreva o resultado.
+
+##### Ainda que também apresente algum grau de polarização, a variável nota ao PT possui uma concentração maior na parcela inferior da distribuição. Isto fica evidente ao observar as medidas de posição: a média é 3, enquanto a mediana é 3.77. No entanto, é importante observar que enquanto a variável Q1607 avalia um político específico, a variável Q1501 tem como objeto o partido. Portanto o mais adequado é comparar notas nas mesmas categorias.
+
+### Teste a associação entre a nota dada a Jair Bolsonaro e a nota dada ao PT, explicando o resultado.
+
+##### A correlação entre a nota do PT e a nota de Jair Bolsonaro é negativa e moderada, com coeficiente de -0.397. O resultado é de se esperar, afinal os dois fazem parte de extremos ideológicos distintos. O p-valor da correlação é significativo, indicando que é possível rejeitar a hipótese nula de que a associação entre as variáveis é zero.
+
+### Faça uma regressao linear mostrando em que medida a nota dada ao PT pelo respondente explica a avaliação do candidato Jair Bolsonaro. Interprete o resultado.
+
+##### A regressão indica o esperado: a relação negativa entre nota do PT e nota de Jair Bolsonaro. O aumento de uma unidade na nota do PT está associado a uma redução de 0.38 na nota de Jair Bolsonaro, com p-valor significativo, possibilitando a rejeição da hipótese nula. O erro padrão da amostra é pequeno, e o R2 é de 0.158, indicando que 15,8% da variação da variável dependente está associada à variação da variável independente.
+
+```{r}
+
+banco_pt <- banco %>% filter(Q1501 <= 10) 
+
+p9 <- ggplot(banco_pt, aes(x = Q1501)) + geom_histogram(fill = '#666699') + ggtitle("Nota - PT")
+p10 <- ggplot(banco_pt, aes(x = "", y = Q1501)) + geom_boxplot(fill = "#666699")
+plot_grid(plotlist = list(p9, p10))
+
+summary(banco_pt$Q1501)
+
+banco_pt_jair <- banco %>% filter(Q1501 <= 10, Q1607 <= 10)
+
+cor.test(banco_pt_jair$Q1501, banco_pt_jair$Q1607)
+
+
+summary(lm(Q1607~Q1501, data = banco_pt_jair))
+ggplot(banco_pt_jair, aes(x = Q1501, y = Q1607)) + geom_point() + geom_smooth(method = 'lm')
+
+```
+
+
+### A variável Q18 indica uma auto-atribuição em uma escala ideologica de 0 a 10, da esquerda para a direita. Valores acima de 10 representam respostas não uteis para nossa pesquisa. Represente graficamente esta variável apenas com os valores válidos e descreva o resultado.
+
+##### A escala ideológica teve distribuição polarizada, com concentração de valores nos extremos da distribuição, e um pico no centro. Entretanto, é importante destacar que a quantidade de respondentes que se classificaram como de direita é significativamente superior àqueles que se consideravam de esquerda.
+
+### Teste a associação entre a nota dada a Jair Bolsonaro e a auto-atribuição ideológica, explicando o resultado.
+
+##### O teste de correlação retornou um coeficiente de 0.353, ou seja, uma associação fraca para moderada entre a variável escala ideológica e voto em bolsonaro.
+
+### Faça uma regressao linear mostrando em que medida a auto-atribuição ideológica do repondente explica a avaliação do candidato Jair Bolsonaro. Interprete o resultado.
+
+##### Como esperado, a variável de escala ideológica tem impacto positivo de 0.4 na nota de Jair Bolsonaro, significando que o aumento de uma unidade na escala ideológica implica no aumento de 0.4 da nota do político. O p-valor da estimativa foi significativo ao nível de 99%, indicando que a hipótese nula pode ser rejeitada. O erro padrão da amostra encontrado foi de 0.02, indicando que a variabilidade esperada do valor do parâmetro entre amostras é pequena. Por fim, o R2 de 0,12 indica que do total da variável dependente, 12% de sua variabilidade está associada à variável independente.
+
+```{r}
+
+banco_q18 <- banco %>% filter(Q18 <= 10 & Q1607 <= 10)
+p11 <- ggplot(banco_q18, aes(x = "", y = Q18)) + geom_boxplot(fill = "#666699") + ggtitle("Escala Ideológica")
+p12 <- ggplot(banco_q18, aes(x = Q18)) + geom_histogram(fill = "#666699")
+plot_grid(plotlist = list(p11,p12), align = 'h')
+
+summary(banco_q18$Q18)
+
+cor.test(banco_q18$Q18, banco_q18$Q1607)
+
+summary(lm(Q1607~Q18, data = banco_q18))
+ggplot(banco_q18, aes(x = Q18, y = Q1607)) + geom_point() + geom_smooth(method = 'lm')
+
+```
+
+### Observando o resultado das regressões, você diria que qual tipo de variável explica mais a variação das notas atribuidas a Jair Bolsonaro, as socio-economicas ou políticas?
+
+##### Quando consideradas individualmente, as variáveis políticas demonstraram ter maior potencial explicativo da nota atribuída a Jair Bolsonaro. O R2 das variáveis políticas foram 0.158 para nota do PT e 0.12 para escala ideológica, valores maiores que as variáveis socioeconômicas. Ainda assim, é necessário aprofundar a análise, realizando regressões que incluam outros fatores e controles. Nestes casos, variáveis como renda e idade podem ajudar a elucidar as hipóteses. 
+
+### Observando o resultado das regressões, você diria que algum modelo errou menos comparado aos outros na nota prevista atribuída a Jair Bolsonaro?
+
+##### O modelo que obteve o menor erro padrão residual foi o que relacionava a variável nota de Jair Bolsonaro com a nota do PT. Nesse modelo o erro padrão dos resíduos foi de 3.643.
+
+### Observando o resultado das regressões, você diria que qual(quais) variáveis possui(em) maior efeito no nota atribuída a Jair Bolsonaro?
+##### Não é possível comparar os coefientes de variáveis de modelos distintos de forma direta. Mas, em termos unitários, as variáveis que possuem maiores efeitos são a escala política (0.409) e nota do PT (-0.41).
+
