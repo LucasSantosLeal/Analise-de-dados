@@ -1,0 +1,121 @@
+---
+title: "Exercício 8"
+author: "Lucas Santos Leal de Albuquerque"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+```
+
+### Continuaremos com a utilização dos dados do ESEB2018. Carregue o banco da mesma forma que nos exercicios anteriores
+
+```{r}
+library(tidyverse)
+library(haven)
+library(scales)
+library(dotwhisker)
+
+link <- "https://github.com/MartinsRodrigo/Analise-de-dados/blob/master/04622.sav?raw=true"
+
+download.file(link, "04622.sav", mode = "wb")
+
+banco <- read_spss("04622.sav") 
+
+banco <- banco %>%
+  mutate(D2_SEXO = as_factor(D2_SEXO),
+         D10 = as_factor(D10)) %>%
+  filter(Q1607 < 11)
+```
+
+### Começaremos a utilizar no modelo de regressão variáveis qualitativas/categóricas. A primeira delas é sexo (D2_SEXO). Represente esta variável graficamente.
+```{r}
+ggplot(banco, aes(D2_SEXO,..count../sum(..count..) )) + geom_bar()
+```
+
+
+### Represente graficamente a associação entre sexo e nota atribuida a Bolsonaro (Q1607)
+```{r}
+ggplot(banco, aes(x = Q1607, fill = D2_SEXO)) + geom_density()
+```
+
+
+
+### Teste a associação entre sexo e aprovação de Bolsonaro. Qual é sua conclusão?
+
+#### O teste T tem como objetivo verificar se a diferença da média da nota atribuida a Jair Bolsonaro por homens e mulheres é estatisticamente diferente. O resultado mostra que a média do grupo masculino (6.02) é estatísticamente da média do grupo feminino (5.06), a nível de 99% de certeza.
+```{r}
+t.test(Q1607~D2_SEXO, data = banco)
+```
+
+
+
+### Faça uma regressão bivariada com estas duas variáveis, verificando em que medida sexo explica a nota atribuida a Bolsonaro. Interprete o resultado da regressão (o $\beta$, o $\alpha$, p-valores e medidas de desempenho do modelo)
+
+#### Os resultados indicam que a nota média atribuída a Jair Bolsonaro por respondentes do sexo masculino é de 6.02, categoria utilizada como padrão para a regressão. O beta da variável de gênero feminino foi de -0.95, significativo ao nível de 95% (suficiente para a rejeição da hipótese nula de que o coeficiente tem valor zero) indicando que em média mulheres atribuem -0.95 menor que homens. O R2 do modelo é baixo (1%), indicando baixa capacidade explicativa da variável D3_SExO.
+
+```{r}
+summary(reg_1 <- lm(Q1607~D2_SEXO, banco))
+```
+
+
+### Outra variável categórica bastante presente no debate sobre voto na última eleição é religião (D10). Represente esta variável graficamente.
+```{r}
+ggplot(banco, aes(..count.., D10)) + geom_bar()
+
+```
+
+
+### Crie no banco de dados uma variável de religião modificada chamada `religiao` com as categorias "Evangélica", "Católica", "Não tem religião", e agregue todas as outras na categoria "Outras".
+
+```{r}
+Outras <- levels(banco$D10)[-c(3,5,13)]
+
+banco <- banco %>%
+  mutate(religiao = case_when(D10 %in% Outras ~ "Outras",
+                              D10 == "Católica" ~ "Católica",
+                              D10 == "Evangélica" ~ "Evangélica",
+                              D10 == "Não tem religião" ~ "Não tem religião"))
+
+
+ggplot(banco, aes(religiao, ..count../sum(..count..) )) +
+  geom_bar() +
+  scale_y_continuous(labels = percent)
+```
+
+### Represente graficamente a associação entre religiao e nota atribuida a Bolsonaro 
+```{r}
+ggplot(banco, aes(x = Q1607, fill = religiao)) + geom_density()
+
+```
+
+
+### Para fazer o teste estatistico da associação entre as variáveis, não podemos usar o teste-t pois neste caso a variável categórica possui diversos níveis. O adequado é utilizar o teste de ANOVA ou o teste de Kruskal. Abaixo ilustramos como fazer esse teste. O Kruskal-test indica se há diferença entre alguma das categorias da variável e a variável contínua, mas não especifica como as diferentes categorias se diferenciam. Isso pode ser obtido com o teste de Wilcox, que compara os agrupamentos par a par. Como você interpreta esse resultado?
+
+
+#### O teste de Kruskal indica que há diferença na média em pelo menos uma das categorias, dada pelo p-valor significativo que permite descartar a hipótese nula de todas as médias são iguais. O teste de wilcox verifica a diferença estatística entre as categorias, o resultado indica que as categorias são diferentes entre si, menos na comparação entre a categoria outras e não tem religião.
+
+```{r}
+kruskal.test(Q1607 ~ religiao, data = banco)
+
+pairwise.wilcox.test(banco$Q1607, banco$religiao,
+                     p.adjust.method = "BH")
+```
+
+### Faça uma regressão linear para verificar em que medida religião explica a avaliação de Bolsonaro. Interprete o resultado da regressão (cada um dos $\beta$s, o $\alpha$, p-valores e medidas de desempenho do modelo)
+#### O modelo considera a variável católigo como padrão. O intercepto indica que católicos atribuem em média nota 5.44 a Jair Bolsonaro. A categoria religião evangélica teve coeficiente de 0.81, indicando que evangélicos atribuem em média nota 0.81 maior que os católicos, com p-valor significativo ao nível de 95%. Já respondentes sem religião atribuem nota menor em 0.63 do que a categoria padrão. Por fim, a categoria que agrega as demais religiões teve nota menor em 1.3 do que os católicos.
+
+
+```{r}
+summary(lm(Q1607~religiao, data = banco))
+```
+
+
+### Faça uma regressao linear avaliando ao mesmo tempo em que medida religiao e sexo explicam a avaliacao de Bolsonaro. Interprete o resultado de cada um dos coeficientes a partir da representação gráfica destes.
+
+#### 
+```{r}
+reg_3 <- lm(Q1607~D2_SEXO + religiao, data = banco)
+dwplot(reg_3)
+
+```
