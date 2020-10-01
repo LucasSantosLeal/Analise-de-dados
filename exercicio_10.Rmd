@@ -1,0 +1,127 @@
+---
+title: "Exercicio 10"
+author: "Lucas Santos Leal de Albuquerque"
+output:
+  html_document:
+    df_print: paged
+  github_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F)
+options(scipen = 9999)
+```
+
+### Continuaremos com a utilização dos dados do ESEB2018. Carregue o banco da mesma forma que nos exercicios anteriores
+
+```{r}
+library(tidyverse)
+library(haven)
+require(margins)
+require(dotwhisker)
+#install.packages('caret')
+#install.packages('e1071')
+require(e1071)
+require(caret)
+
+
+link <- "https://github.com/MartinsRodrigo/Analise-de-dados/blob/master/04622.sav?raw=true"
+
+download.file(link, "04622.sav", mode = "wb")
+
+banco <- read_spss("04622.sav") 
+
+banco <- banco %>%
+  mutate(D10 = as_factor(D10)) %>%
+  filter(Q18 < 11,
+         D9 < 9999998,
+         Q1501 < 11,
+         Q12P2_B < 3) %>%
+  mutate(Q12P2_B = case_when(Q12P2_B == 1 ~ 0,  # Quem votou em Haddad = 0
+                             Q12P2_B == 2 ~ 1)) # Quem votou em Bolsonaro = 1
+```
+
+### Crie a mesma variável de religião utilizada no exercício anterior
+
+```{r}
+Outras <- levels(banco$D10)[-c(3,5,13)]
+
+banco <- banco %>%
+  mutate(religiao = case_when(D10 %in% Outras ~ "Outras",
+                              D10 == "Católica" ~ "Católica",
+                              D10 == "Evangélica" ~ "Evangélica",
+                              D10 == "Não tem religião" ~ "Não tem religião"))
+
+
+```
+
+### Faça uma regressão linear utilizando as mesmas variáveis do exercício 9 - idade(D1A_ID), educação (D3_ESCOLA), renda (D9), nota atribuída ao PT (Q1501), auto-atribuição ideológica (Q18), sexo (D2_SEXO) e religião (variável criada no passo anterior) - explicam o voto em Bolsonaro (Q12P2_B).
+
+```{R}
+modelo_1 <- lm(Q12P2_B~D1A_ID+D3_ESCOLA+D9+Q1501+Q18+D2_SEXO+religiao, data = banco)
+summary(modelo_1)
+```
+
+
+### Interprete o resultado dos coeficientes
+
+#### Como a variável dependente pode assumir dois valores, 0 e 1, pode-se interpretar a regressão como um modelo linear de probabilidade. Os resultados indicam que idade, escolaridade, escala ideológica e religião evangélica estão associadas a uma probabilidade maior de votar em bolsonaro em relação às observações de referência (homens católicos). O aumento de uma no de idade está associado a um aumento de 0.001 na probabilidade do voto em Bolsonaro, o aumento em um ano de escolaridade está associado a um aumento de 0.005 na probabilidade, a escala ideológica está associada a um aumento na probabilidade de 0.026 e por fim, ser evangélico está associado a um aumento de 0.07 na probabilidade, em relação à religião católica. No sentido contrário, renda, nota atribuída ao PT, sexo, sem religião e outras religiões estão associadas à probabilidades menores de voto em bolsonaro. Para cada aumento de uma unidade na variável de nota atribuida ao PT está associada uma queda na probabilidade de voto em Bolsonaro de 0.07, ser do sexo feminino está associado a uma queda de 0.05 na probabilidade de voto, não ter religião e religiões outras que não católica e evangélica estão associadas a quedas de 0.002 e 0.07, respectivamente. Idade, escolaridade, renda e nenhuma relgião tiveram coeficientes não significantes estatísticamente, o que impede a rejeição da hipótese de que sejam zero. Nesse contexto, o R2 não possui interpretação relevante, e deve-se estar atento para a necessidade de erros padrão robustos, devido à heteroscedasticidade.
+
+
+### O resultado difere dos encontrados anteriormente, quando a variavel dependente era a aprovação de Bolsonaro?
+#### A direção esperada das relações entre as variáveis foi semelhante à dos exercícios anteriores, apenas a variável escolaridade (D3_ESCOLA) que teve o sentido invertido no modelo de probabilidade linear.
+
+```{R}
+### Faça uma regressão logistica com as mesmas variaveis
+
+modelo_2 <- glm(Q12P2_B~D1A_ID+
+                  D3_ESCOLA+
+                  D9+
+                  Q1501+
+                  Q18+
+                  D2_SEXO+
+                  religiao, family = binomial(link = 'logit'), data = banco)
+
+summary(modelo_2)
+### Transforme os coeficientes estimados em probabilidade
+
+
+
+summary(margins(modelo_2))
+
+
+efeito_marginal <- summary(margins(modelo_2)) %>%
+  rename(term = factor,
+         estimate = AME,
+         std.error = SE,
+         statistic = z,
+         p.value = p) %>%
+  arrange(estimate)
+
+dwplot(efeito_marginal,
+       order_vars = c('Q18', 'Q1501',
+                                       'D2_SEXO', 'D9',
+                                       'D1A_ID', 'D3_ESCOLA',
+                                       'religiaoOutras', 'religiaoNão tem religião',
+                                       'religiaoEvangélica'),
+       vline = geom_vline(xintercept = 0))
+
+
+```
+
+### Quais foram as diferenças no resultado entre usar a regressão linear e a logistica?
+
+#### As probabilidades estimadas pelos dois modelos foram semelhantes e para todas as variáveis o sentido da relação com a variável dependente foi o mesmo.
+
+
+### Verifique a quantidade de classificações corretas da regressao logistica e avalie o resultado
+
+#### a matriz de confusão mostra que o modelo tem uma precisão de 83% dos valores da variável de voto para presidente. Dos respondentes que votaram em Haddad, o modelo previu corretamente 376 e errou 96, ou seja acertou 79%. Dos que votaram em Bolsonaro, o modelo previu corretamente 577 e errou 100, ou seja 85% de precisão. A precisão do modelo foi maior que a taxa de não informação, indicando que houve acréscimo na capacidade preditiva ao adicionar as variáveis explicativas.
+
+```{r}
+
+preditas_3 <- as.numeric(modelo_2$fitted.values >= 0.5)
+caret::confusionMatrix(as.factor(banco$Q12P2_B), as.factor(preditas_3))
+
+```
+
